@@ -1,70 +1,44 @@
 <!DOCTYPE html>
-
 <html lang="ru">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <title>Монитор группы</title>
-
+    <title>Монитор группы PO232</title>
     <style>
-
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-
-        .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-
+        .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-
-        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
-
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; }
         button:hover { opacity: 0.8; }
-
-        .user-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
-
+        
+        /* Список группы */
+        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; text-align: left; }
+        .u-info { display: flex; align-items: center; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; background: #ccc; transition: 0.3s; }
+        .online-glow { background: #28a745; box-shadow: 0 0 8px #28a745; }
+        
+        .time-badge { color: #4285F4; font-size: 12px; font-weight: bold; display: block; margin-top: 2px; }
+        .status-text { font-size: 13px; color: #666; }
     </style>
-
 </head>
-
 <body>
 
-
-
     <div class="card">
-
-        <h3 style="margin:0">Мой профиль</h3>
-
-        <p id="myInfo" style="margin: 10px 0;">Загрузка...</p>
-
+        <h3 id="myTitle" style="margin:0">Загрузка...</h3>
+        <p id="myInfo" style="margin: 10px 0; color: #666;">Пожалуйста, войдите</p>
         <button id="authBtn" style="background: #4285F4; width: 100%;" onclick="toggleAuth()">Войти через Google</button>
-
+        
         <div class="grid" id="statusGrid" style="display:none;">
-
             <button style="background: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Учусь</button>
-
             <button style="background: #ffc107; color: black;" onclick="changeStatus('☕ Кофе', '#ffc107')">☕ Кофе</button>
-
             <button style="background: #17a2b8;" onclick="changeStatus('🎮 В игре', '#17a2b8')">🎮 В игре</button>
-
             <button style="background: #6c757d;" onclick="changeStatus('🏠 Дома', '#6c757d')">🏠 Дома</button>
-
         </div>
-
     </div>
-
-
 
     <div class="card">
-
-        <h3 style="margin:0 0 10px 0">Монитор группы</h3>
-
+        <h3 style="margin:0 0 10px 0">👥 Монитор группы</h3>
         <div id="groupList"></div>
-
     </div>
-
-
 
 <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
@@ -73,8 +47,8 @@
     const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
     const supabase = createClient(URL, KEY);
 
-    // Ссылка на твой сайт на GitHub
     const SITE_URL = 'https://yasikov-maxim.github.io/PO232/';
+    let currentUser = null;
 
     window.toggleAuth = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -82,7 +56,6 @@
             await supabase.auth.signOut();
             location.reload();
         } else {
-            // Исправлено: добавили redirectTo
             await supabase.auth.signInWithOAuth({ 
                 provider: 'google',
                 options: { redirectTo: SITE_URL }
@@ -91,42 +64,64 @@
     };
 
     window.changeStatus = async (text, color) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return alert("Сначала войдите через Google!");
+        if (!currentUser) return;
         
-        // Обновляем статус и цвет
+        // Если статус "Учусь", ставим метку времени, иначе стираем её
+        const isStudy = text.includes('Учусь');
+        
         await supabase.from('profiles').update({ 
             status: text, 
             color: color,
-            last_seen: new Date().toISOString() 
-        }).eq('id', user.id);
+            last_seen: new Date().toISOString(),
+            study_started_at: isStudy ? new Date().toISOString() : null 
+        }).eq('id', currentUser.id);
         
         fetchGroup();
     };
 
     async function fetchGroup() {
         const { data, error } = await supabase.from('profiles').select('*').order('username');
-        if (error) return console.error("Ошибка загрузки:", error);
-        if (!data) return;
+        if (error || !data) return;
 
         const list = document.getElementById('groupList');
-        if (list) {
-            list.innerHTML = data.map(u => `
+        const now = new Date();
+
+        list.innerHTML = data.map(u => {
+            // Проверка онлайн: разница между сейчас и last_seen < 60 секунд
+            const lastActive = new Date(u.last_seen);
+            const isOnline = (now - lastActive) < 60000;
+
+            // Расчет времени сессии
+            let sessionTime = "";
+            if (u.study_started_at && u.status.includes('Учусь')) {
+                const start = new Date(u.study_started_at);
+                const diff = Math.floor((now - start) / 1000);
+                const m = Math.floor(diff / 60);
+                const s = diff % 60;
+                sessionTime = `⏱ ${m}м ${s}с`;
+            }
+
+            return `
                 <div class="user-item">
-                    <div class="status-dot" style="background: ${u.color || '#ccc'}"></div>
-                    <div>
-                        <strong>${u.username || 'Аноним'}</strong><br>
-                        <small>${u.status || '🏠 Дома'}</small>
+                    <div class="u-info">
+                        <div class="status-dot ${isOnline ? 'online-glow' : ''}"></div>
+                        <div>
+                            <strong>${u.username || 'Аноним'}</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span class="status-text">${u.status || '🏠 Дома'}</span>
+                        <span class="time-badge">${sessionTime}</span>
                     </div>
                 </div>
-            `).join('');
-        }
+            `;
+        }).join('');
     }
 
     async function checkUser() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            // Сохраняем имя пользователя в базу, если его там нет
+            currentUser = user;
             await supabase.from('profiles').upsert({
                 id: user.id,
                 username: user.user_metadata.full_name || user.email,
@@ -136,22 +131,20 @@
             document.getElementById('authBtn').innerText = "Выйти";
             document.getElementById('authBtn').style.background = "#dc3545";
             document.getElementById('statusGrid').style.display = "grid";
-            document.getElementById('myInfo').innerText = `Вы: ${user.user_metadata.full_name || user.email}`;
+            document.getElementById('myTitle').innerText = user.user_metadata.full_name || "Мой профиль";
+            document.getElementById('myInfo').innerText = "Статус обновляется автоматически";
             
-            // Обновляем "пульс" онлайна каждые 30 сек
+            // "Сердцебиение" — обновляем время захода каждые 30 сек
             setInterval(() => {
-                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id);
             }, 30000);
-        } else {
-            document.getElementById('myInfo').innerText = "Войдите, чтобы управлять статусом";
         }
     }
 
     checkUser();
     fetchGroup();
-    setInterval(fetchGroup, 5000);
+    setInterval(fetchGroup, 3000); // Обновляем список каждые 3 сек для плавности таймера
 </script>
 
 </body>
-
 </html>
