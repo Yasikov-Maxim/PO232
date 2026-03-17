@@ -83,6 +83,8 @@
     
     let currentUser = null;
     let mainTimerInterval = null;
+    let elapsedSeconds = 0; // Уже прошедшее время
+    let studyStartTime = null;
 
     // --- Авторизация ---
     window.handleAuth = async () => {
@@ -110,21 +112,37 @@
             study_started_at: isStudying ? now : null 
         }).eq('id', currentUser.id);
 
-        if (isStudying) { startMainTimer(new Date()); } else { stopMainTimer(); }
+        if (isStudying) { 
+            studyStartTime = new Date(); 
+            startMainTimer(studyStartTime); 
+        } else if (text === '☕ Перерыв') {
+            pauseMainTimer(); // при перерыве ставим на паузу
+        } else {
+            resetMainTimer(); // при завершении сессии сбрасываем таймер
+        }
+
         fetchGroup();
     };
 
     // --- Таймеры ---
     function startMainTimer(startTime) {
         clearInterval(mainTimerInterval);
+        studyStartTime = startTime;
         mainTimerInterval = setInterval(() => {
-            const diff = Math.floor((new Date() - startTime) / 1000);
+            const diff = Math.floor((new Date() - studyStartTime) / 1000) + elapsedSeconds;
             document.getElementById('mainTimerDisplay').innerText = formatTime(diff);
         }, 1000);
     }
 
-    function stopMainTimer() {
+    function pauseMainTimer() {
         clearInterval(mainTimerInterval);
+        const diff = Math.floor((new Date() - studyStartTime) / 1000);
+        elapsedSeconds += diff;
+    }
+
+    function resetMainTimer() {
+        clearInterval(mainTimerInterval);
+        elapsedSeconds = 0;
         document.getElementById('mainTimerDisplay').innerText = "0 сек.";
     }
 
@@ -199,14 +217,14 @@
             currentUser = data.user;
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('studySection').style.display = 'block';
-            document.getElementById('chatSection').style.display = 'block'; // Показываем чат
+            document.getElementById('chatSection').style.display = 'block';
             document.getElementById('profileHeader').innerText = "Мой профиль";
             document.getElementById('userNameDisplay').innerText = currentUser.user_metadata.full_name;
             
-            // Проверка текущего статуса при загрузке
             const { data: prof } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
             if (prof?.study_started_at && prof.status === '📚 Учусь') {
-                startMainTimer(new Date(prof.study_started_at));
+                elapsedSeconds = Math.floor((new Date() - new Date(prof.study_started_at)) / 1000);
+                startMainTimer(new Date());
             }
 
             setInterval(() => {
