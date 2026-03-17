@@ -5,30 +5,61 @@
     <title>Монитор группы</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        
+        /* Стили из примера */
+        .timer-display { font-size: 24px; font-weight: bold; color: #4285F4; margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .timer-icon { width: 24px; height: 24px; }
+        
         button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
         button:hover { opacity: 0.8; }
-        .user-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
+        
+        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .user-info { display: flex; align-items: center; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; position: relative; }
+        
+        /* Пульсирующий индикатор онлайн */
+        .online::after {
+            content: '';
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: inherit;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+        
+        .time-label { font-size: 0.8em; color: #666; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h3 style="margin:0">Мой профиль</h3>
-        <p id="myInfo" style="margin: 10px 0;">Загрузка...</p>
-        <button id="authBtn" style="background: #4285F4; width: 100%;" onclick="toggleAuth()">Войти через Google</button>
-        <div class="grid" id="statusGrid" style="display:none;">
-            <button style="background: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Учусь</button>
-            <button style="background: #ffc107; color: black;" onclick="changeStatus('☕ Кофе', '#ffc107')">☕ Кофе</button>
-            <button style="background: #17a2b8;" onclick="changeStatus('🎮 В игре', '#17a2b8')">🎮 В игре</button>
-            <button style="background: #6c757d;" onclick="changeStatus('🏠 Дома', '#6c757d')">🏠 Дома</button>
+    <div class="card" id="timerCard" style="display:none;">
+        <h3 id="userNameDisplay">Имя Фамилия</h3>
+        <div class="timer-display">
+            <span class="timer-icon">⏱️</span>
+            <span id="sessionTimer">0 сек.</span>
+        </div>
+        <button style="background: #dc3545; width: 100%; margin-bottom: 10px;" onclick="changeStatus('Завершил', '#6c757d')">⛔ Завершить сессию</button>
+        <div class="grid">
+            <button style="background: #ffc107; color: black;" onclick="changeStatus('☕ Перерыв', '#ffc107')">☕ Перерыв</button>
+            <button style="background: #6c757d;" onclick="toggleAuth()">Выход</button>
         </div>
     </div>
 
     <div class="card">
-        <h3 style="margin:0 0 10px 0">Монитор группы</h3>
+        <h3 style="margin:0">Авторизация</h3>
+        <p id="myInfo" style="margin: 10px 0;">Войдите, чтобы начать учебу</p>
+        <button id="authBtn" style="background: #4285F4; width: 100%;" onclick="toggleAuth()">Войти через Google</button>
+        
+        <div class="grid" id="statusGrid" style="display:none;">
+            <button style="background: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Начать учиться</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px 0">👤 Монитор группы</h3>
         <div id="groupList"></div>
     </div>
 
@@ -39,7 +70,20 @@
     const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
     const supabase = createClient(URL, KEY);
 
-    // Функция входа/выхода
+    let startTime = Date.now();
+    let currentStatus = "";
+
+    // 1. Логика таймера
+    function updateTimer() {
+        if (currentStatus === '📚 Учусь') {
+            const diff = Math.floor((Date.now() - startTime) / 1000);
+            const mins = Math.floor(diff / 60);
+            const secs = diff % 60;
+            document.getElementById('sessionTimer').innerText = mins > 0 ? `${mins}м ${secs}с` : `${secs} сек.`;
+        }
+    }
+    setInterval(updateTimer, 1000);
+
     window.toggleAuth = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -50,40 +94,62 @@
         }
     };
 
-    // Функция смены статуса
     window.changeStatus = async (text, color) => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return alert("Сначала войдите через Google!");
+        if (!user) return;
         
-        await supabase.from('profiles')
-            .update({ status: text, color: color })
-            .eq('id', user.id);
+        currentStatus = text;
+        if (text === '📚 Учусь') startTime = Date.now(); // Сброс таймера при начале учебы
+
+        await supabase.from('profiles').update({ 
+            status: text, 
+            color: color,
+            last_seen: new Date().toISOString() // Обновляем время активности
+        }).eq('id', user.id);
+        
         fetchGroup();
     };
 
-    // Обновление списка
     async function fetchGroup() {
         const { data, error } = await supabase.from('profiles').select('*').order('username');
-        if (error) return console.error(error);
+        if (error) return;
+
+        const now = new Date();
         
-        document.getElementById('groupList').innerHTML = data.map(u => `
-            <div class="user-item">
-                <div class="status-dot" style="background: ${u.color || '#ccc'}"></div>
-                <div><strong>${u.username}</strong><br><small>${u.status || 'Нет статуса'}</small></div>
-            </div>
-        `).join('');
+        document.getElementById('groupList').innerHTML = data.map(u => {
+            // Проверка на онлайн (активность в последние 30 секунд)
+            const lastSeen = new Date(u.last_seen);
+            const isOnline = (now - lastSeen) < 30000; 
+            const onlineClass = isOnline ? 'online' : '';
+
+            return `
+                <div class="user-item">
+                    <div class="user-info">
+                        <div class="status-dot ${onlineClass}" style="background: ${u.color || '#ccc'}"></div>
+                        <div style="text-align: left;">
+                            <strong>${u.username || 'Аноним'}</strong><br>
+                            <small>${u.status || 'Оффлайн'}</small>
+                        </div>
+                    </div>
+                    <div class="time-label">🏠 Дома</div>
+                </div>
+            `;
+        }).join('');
     }
 
-    // Проверка состояния
     async function checkUser() {
         const { data: { user } } = await supabase.auth.getUser();
-        const btn = document.getElementById('authBtn');
-        const grid = document.getElementById('statusGrid');
         if (user) {
-            btn.innerText = "Выйти";
-            btn.style.background = "#dc3545";
-            grid.style.display = "grid";
-            document.getElementById('myInfo').innerText = `Вы зашли как: ${user.email}`;
+            document.getElementById('authBtn').style.display = "none";
+            document.getElementById('statusGrid').style.display = "grid";
+            document.getElementById('timerCard').style.display = "block";
+            document.getElementById('myInfo').innerText = `Аккаунт: ${user.email}`;
+            document.getElementById('userNameDisplay').innerText = user.user_metadata.full_name || user.email;
+            
+            // Каждые 20 сек подтверждаем, что мы онлайн
+            setInterval(async () => {
+                await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+            }, 20000);
         }
     }
 
