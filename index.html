@@ -1,53 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Монитор группы PO232</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; border-radius: 15px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
-        
-        .timer-val { font-size: 30px; font-weight: bold; color: #4285F4; margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        
-        button { padding: 12px; border: none; border-radius: 10px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; width: 100%; font-size: 16px; margin: 5px 0; }
-        .btn-stop { background: #d93025; }
-        .btn-break { background: #fbbc04; color: black; }
-        .btn-exit { background: #5f6368; }
-        .btn-start { background: #34a853; }
-
-        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #f0f0f0; }
-        .user-info { display: flex; align-items: center; gap: 10px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
-        .online { background: #34a853; box-shadow: 0 0 8px #34a853; }
-        
-        .user-meta { text-align: right; font-size: 12px; color: #666; }
-        .study-time { color: #4285F4; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-    <div class="card" id="profileCard">
-        <h3 id="userName">Мой профиль</h3>
-        <div id="authBox">
-            <button class="btn-start" style="background:#4285F4" onclick="toggleAuth()">Войти через Google</button>
-        </div>
-        
-        <div id="studyBox" style="display:none;">
-            <div class="timer-val">⏱ <span id="timerDisplay">0 сек.</span></div>
-            <button class="btn-stop" onclick="changeStatus('🏠 Дома', '#5f6368', false)">⛔ Завершить сессию</button>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-break" onclick="changeStatus('☕ Перерыв', '#fbbc04', false)">☕ Перерыв</button>
-                <button class="btn-exit" onclick="toggleAuth()">Выход</button>
-            </div>
-            <button class="btn-start" id="startBtn" onclick="changeStatus('📚 Учусь', '#34a853', true)">Начать учиться</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3 style="text-align:left; margin-top:0;">🎥 Монитор группы</h3>
-        <div id="groupList"></div>
-    </div>
-
 <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
@@ -55,69 +5,131 @@
     const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
     const supabase = createClient(URL, KEY);
 
+    // НОВОЕ: обработка редиректа от Google
+    async function handleAuthRedirect() {
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error) throw error;
+            
+            if (data?.session) {
+                // Если есть сессия, очищаем URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        } catch (error) {
+            console.error('Auth redirect error:', error);
+        }
+    }
+
+    // ИСПРАВЛЕНО: добавил try/catch и проверку ошибок
     async function toggleAuth() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) { await supabase.auth.signOut(); location.reload(); }
-        else { await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } }); }
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) { 
+                await supabase.auth.signOut(); 
+                location.reload(); 
+            } else { 
+                const { error } = await supabase.auth.signInWithOAuth({ 
+                    provider: 'google', 
+                    options: { 
+                        redirectTo: window.location.href 
+                    } 
+                });
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error('Auth error:', error.message);
+            alert('Ошибка входа: ' + error.message);
+        }
     }
     window.toggleAuth = toggleAuth;
 
+    // ИСПРАВЛЕНО: добавил проверку на наличие пользователя
     window.changeStatus = async (text, color, startTimer) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        const updateData = { 
-            status: text, 
-            color: color, 
-            last_seen: new Date().toISOString(),
-            study_started_at: startTimer ? new Date().toISOString() : null
-        };
-        await supabase.from('profiles').update(updateData).eq('id', user.id);
-        fetchGroup();
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('Сначала войдите в систему');
+                return;
+            }
+            
+            const updateData = { 
+                status: text, 
+                color: color, 
+                last_seen: new Date().toISOString(),
+                study_started_at: startTimer ? new Date().toISOString() : null
+            };
+            
+            const { error } = await supabase.from('profiles').update(updateData).eq('id', user.id);
+            if (error) throw error;
+            
+            fetchGroup();
+        } catch (error) {
+            console.error('Status update error:', error);
+        }
     };
 
     async function fetchGroup() {
-        const { data, error } = await supabase.from('profiles').select('*').order('username');
-        if (error) return;
-        const now = new Date();
+        try {
+            const { data, error } = await supabase.from('profiles').select('*').order('username');
+            if (error) throw error;
+            
+            const now = new Date();
+            document.getElementById('groupList').innerHTML = data.map(u => {
+                const isOnline = u.last_seen && (now - new Date(u.last_seen)) < 60000;
+                let timeStr = "";
+                if (u.study_started_at && u.status === '📚 Учусь') {
+                    const diff = Math.floor((now - new Date(u.study_started_at)) / 1000);
+                    timeStr = diff > 60 ? Math.floor(diff/60) + 'м ' + (diff%60) + 'с' : diff + ' сек.';
+                }
 
-        document.getElementById('groupList').innerHTML = data.map(u => {
-            const isOnline = u.last_seen && (now - new Date(u.last_seen)) < 60000;
-            let timeStr = "";
-            if (u.study_started_at && u.status === '📚 Учусь') {
-                const diff = Math.floor((now - new Date(u.study_started_at)) / 1000);
-                timeStr = diff > 60 ? Math.floor(diff/60) + 'м ' + (diff%60) + 'с' : diff + ' сек.';
-            }
-
-            return `
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="status-dot ${isOnline ? 'online' : ''}"></div>
-                        <strong>${u.username || 'Ученик'}</strong>
+                return `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <div class="status-dot ${isOnline ? 'online' : ''}"></div>
+                            <strong>${u.username || 'Ученик'}</strong>
+                        </div>
+                        <div class="user-meta">
+                            <div>${u.status || '🏠 Дома'}</div>
+                            <div class="study-time">${timeStr ? '⏱ ' + timeStr : ''}</div>
+                        </div>
                     </div>
-                    <div class="user-meta">
-                        <div>${u.status || '🏠 Дома'}</div>
-                        <div class="study-time">${timeStr ? '⏱ ' + timeStr : ''}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Fetch error:', error);
+        }
     }
 
     async function init() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            document.getElementById('authBox').style.display = "none";
-            document.getElementById('studyBox').style.display = "block";
-            document.getElementById('userName').innerText = user.user_metadata.full_name || user.email;
+        await handleAuthRedirect(); // ВАЖНО: сначала обрабатываем редирект
+        
+        try {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error) throw error;
             
-            // Heartbeat: каждые 30 сек обновляем "онлайн"
-            setInterval(() => {
-                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
-            }, 30000);
+            if (user) {
+                document.getElementById('authBox').style.display = "none";
+                document.getElementById('studyBox').style.display = "block";
+                document.getElementById('userName').innerText = user.user_metadata?.full_name || user.email;
+                
+                // Heartbeat: каждые 30 сек обновляем "онлайн"
+                setInterval(async () => {
+                    try {
+                        await supabase.from('profiles').update({ 
+                            last_seen: new Date().toISOString() 
+                        }).eq('id', user.id);
+                    } catch (e) {
+                        console.error('Heartbeat error:', e);
+                    }
+                }, 30000);
+            }
+        } catch (error) {
+            console.error('Init error:', error);
         }
+        
         fetchGroup();
         setInterval(fetchGroup, 5000);
     }
+    
     init();
 </script>
-</body>
-</html>
