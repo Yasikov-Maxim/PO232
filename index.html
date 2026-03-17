@@ -67,121 +67,89 @@
 
 
 <script type="module">
-
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-
-
     const URL = 'https://mdkbkuffvgatlqauxpml.supabase.co';
-
     const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
-
     const supabase = createClient(URL, KEY);
 
-
-
-    // Функция входа/выхода
+    // Ссылка на твой сайт на GitHub
+    const SITE_URL = 'https://yasikov-maxim.github.io/PO232/';
 
     window.toggleAuth = async () => {
-
         const { data: { user } } = await supabase.auth.getUser();
-
         if (user) {
-
             await supabase.auth.signOut();
-
             location.reload();
-
         } else {
-
-            await supabase.auth.signInWithOAuth({ provider: 'google' });
-
+            // Исправлено: добавили redirectTo
+            await supabase.auth.signInWithOAuth({ 
+                provider: 'google',
+                options: { redirectTo: SITE_URL }
+            });
         }
-
     };
-
-
-
-    // Функция смены статуса
 
     window.changeStatus = async (text, color) => {
-
         const { data: { user } } = await supabase.auth.getUser();
-
         if (!user) return alert("Сначала войдите через Google!");
-
         
-
-        await supabase.from('profiles')
-
-            .update({ status: text, color: color })
-
-            .eq('id', user.id);
-
+        // Обновляем статус и цвет
+        await supabase.from('profiles').update({ 
+            status: text, 
+            color: color,
+            last_seen: new Date().toISOString() 
+        }).eq('id', user.id);
+        
         fetchGroup();
-
     };
 
-
-
-    // Обновление списка
-
     async function fetchGroup() {
-
         const { data, error } = await supabase.from('profiles').select('*').order('username');
+        if (error) return console.error("Ошибка загрузки:", error);
+        if (!data) return;
 
-        if (error) return console.error(error);
-
-        
-
-        document.getElementById('groupList').innerHTML = data.map(u => `
-
-            <div class="user-item">
-
-                <div class="status-dot" style="background: ${u.color || '#ccc'}"></div>
-
-                <div><strong>${u.username}</strong><br><small>${u.status || 'Нет статуса'}</small></div>
-
-            </div>
-
-        `).join('');
-
+        const list = document.getElementById('groupList');
+        if (list) {
+            list.innerHTML = data.map(u => `
+                <div class="user-item">
+                    <div class="status-dot" style="background: ${u.color || '#ccc'}"></div>
+                    <div>
+                        <strong>${u.username || 'Аноним'}</strong><br>
+                        <small>${u.status || '🏠 Дома'}</small>
+                    </div>
+                </div>
+            `).join('');
+        }
     }
-
-
-
-    // Проверка состояния
 
     async function checkUser() {
-
         const { data: { user } } = await supabase.auth.getUser();
-
-        const btn = document.getElementById('authBtn');
-
-        const grid = document.getElementById('statusGrid');
-
         if (user) {
+            // Сохраняем имя пользователя в базу, если его там нет
+            await supabase.from('profiles').upsert({
+                id: user.id,
+                username: user.user_metadata.full_name || user.email,
+                last_seen: new Date().toISOString()
+            });
 
-            btn.innerText = "Выйти";
-
-            btn.style.background = "#dc3545";
-
-            grid.style.display = "grid";
-
-            document.getElementById('myInfo').innerText = `Вы зашли как: ${user.email}`;
-
+            document.getElementById('authBtn').innerText = "Выйти";
+            document.getElementById('authBtn').style.background = "#dc3545";
+            document.getElementById('statusGrid').style.display = "grid";
+            document.getElementById('myInfo').innerText = `Вы: ${user.user_metadata.full_name || user.email}`;
+            
+            // Обновляем "пульс" онлайна каждые 30 сек
+            setInterval(() => {
+                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+            }, 30000);
+        } else {
+            document.getElementById('myInfo').innerText = "Войдите, чтобы управлять статусом";
         }
-
     }
 
-
-
     checkUser();
-
     fetchGroup();
-
     setInterval(fetchGroup, 5000);
-
 </script>
 
 </body>
