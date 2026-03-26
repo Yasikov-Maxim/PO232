@@ -32,20 +32,26 @@
         .leader-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
         .rank { font-weight: bold; color: #fbbc04; width: 25px; display: inline-block; }
 
-        /* Чат */
-        #chatDisplay { height: 150px; overflow-y: auto; background: #f8f9fa; border-radius: 10px; padding: 10px; font-size: 14px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 5px; }
+        /* Чат - ИСПРАВЛЕННЫЕ СТИЛИ */
+        #chatDisplay { height: 250px; overflow-y: auto; background: #f8f9fa; border-radius: 15px; padding: 15px; font-size: 14px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
         .chat-input { display: flex; gap: 5px; }
         input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
-        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; word-wrap: break-word; position: relative; }
-        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: right; border-bottom-right-radius: 2px; padding-right: 25px; }
-        .msg.other { background: #e8f0fe; color: #1967d2; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; }
-        .msg b { display: block; font-size: 10px; margin-bottom: 2px; }
+        .msg { padding: 8px 12px; border-radius: 15px; max-width: 75%; word-wrap: break-word; position: relative; line-height: 1.4; min-width: 50px; }
+        
+        /* Свои сообщения (справа) */
+        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: left; border-bottom-right-radius: 2px; padding-right: 30px; box-shadow: 0 2px 5px rgba(52,168,83,0.2); }
+        
+        /* Чужие сообщения (слева) */
+        .msg.other { background: white; color: #1c1e21; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+        
+        .msg b { display: block; font-size: 10px; margin-bottom: 3px; opacity: 0.8; }
+        .msg.other b { color: #4285F4; }
 
         /* Кнопка удаления */
         .del-btn { 
-            position: absolute; top: 2px; right: 5px; cursor: pointer; 
-            font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.7); 
+            position: absolute; top: 5px; right: 8px; cursor: pointer; 
+            font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.7); transition: 0.2s;
         }
         .del-btn:hover { color: #ff4d4d; }
     </style>
@@ -259,7 +265,6 @@ window.sendMsg = async () => {
     loadChat();
 };
 
-// НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ
 window.deleteMsg = async (id) => {
     if (!confirm("Удалить сообщение?")) return;
     await supabase.from('messages').delete().eq('id', id).eq('user_id', currentUser.id);
@@ -274,9 +279,13 @@ async function loadChat() {
         display.innerHTML = data.reverse().map(m => {
             const isMe = m.user_id === currentUser.id;
             const nameDisplay = isMe ? "Вы" : m.user_name;
-            // Добавляем крестик только для своих сообщений
             const delBtn = isMe ? `<span class="del-btn" onclick="deleteMsg('${m.id}')">×</span>` : "";
-            return `<div class="msg ${isMe ? 'me' : 'other'}">${delBtn}<b>${nameDisplay}:</b> ${m.text}</div>`;
+            // Структура сообщения: кнопка удаления, затем заголовок, затем текст
+            return `<div class="msg ${isMe ? 'me' : 'other'}">
+                        ${delBtn}
+                        <b>${nameDisplay}</b>
+                        ${m.text}
+                    </div>`;
         }).join('');
         display.scrollTop = display.scrollHeight;
     }
