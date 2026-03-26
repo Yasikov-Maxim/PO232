@@ -1,60 +1,49 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Монитор группы</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; color: #1c1e21; }
-        .card { background: white; border-radius: 20px; padding: 20px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Монитор группы</title>
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; color: #1c1e21; }
+    .card { background: white; border-radius: 20px; padding: 20px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; box-sizing: border-box; }
 
-        h3 { margin-top: 0; text-align: center; font-size: 18px; }
-        #userNameDisplay { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: block; text-align: center; color: #4285F4; }
+    h3 { margin-top: 0; text-align: center; font-size: 18px; }
+    #userNameDisplay { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: block; text-align: center; color: #4285F4; }
 
-        .big-timer { font-size: 32px; font-weight: bold; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.2s; margin-bottom: 10px; color: white; }
-        .btn-auth { background: #4285F4; }
-        .btn-stop { background: #d93025; }
-        .btn-break { background: #fbbc04; color: black; }
-        .btn-exit { background: #70757a; }
-        .btn-start { background: #34a853; }
+    .big-timer { font-size: 32px; font-weight: bold; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.2s; margin-bottom: 10px; color: white; }
+    .btn-auth { background: #4285F4; }
+    .btn-stop { background: #d93025; }
+    .btn-break { background: #fbbc04; color: black; }
+    .btn-exit { background: #70757a; }
+    .btn-start { background: #34a853; }
 
-        .monitor-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .user-row { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-        .u-main { display: flex; justify-content: space-between; align-items: center; }
-        .u-info { display: flex; align-items: center; gap: 10px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
-        .online { background: #34a853; box-shadow: 0 0 8px #34a853; }
+    .monitor-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .user-row { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .u-main { display: flex; justify-content: space-between; align-items: center; }
+    .u-info { display: flex; align-items: center; gap: 10px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
+    .online { background: #34a853; box-shadow: 0 0 8px #34a853; }
 
-        .achievements-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-        .badge { background: #e8f0fe; color: #1967d2; font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid #d2e3fc; font-weight: bold; }
+    .achievements-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .badge { background: #e8f0fe; color: #1967d2; font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid #d2e3fc; font-weight: bold; }
 
-        .leader-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
-        .rank { font-weight: bold; color: #fbbc04; width: 25px; display: inline-block; }
+    .leader-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+    .rank { font-weight: bold; color: #fbbc04; width: 25px; display: inline-block; }
 
-        /* Чат - ИСПРАВЛЕННЫЕ СТИЛИ */
-        #chatDisplay { height: 250px; overflow-y: auto; background: #f8f9fa; border-radius: 15px; padding: 15px; font-size: 14px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-        .chat-input { display: flex; gap: 5px; }
-        input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+    #chatDisplay { height: 250px; overflow-y: auto; background: #f8f9fa; border-radius: 15px; padding: 15px; font-size: 14px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+    .chat-input { display: flex; gap: 5px; }
+    input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
-        .msg { padding: 8px 12px; border-radius: 15px; max-width: 75%; word-wrap: break-word; position: relative; line-height: 1.4; min-width: 50px; }
-        
-        /* Свои сообщения (справа) */
-        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: left; border-bottom-right-radius: 2px; padding-right: 30px; box-shadow: 0 2px 5px rgba(52,168,83,0.2); }
-        
-        /* Чужие сообщения (слева) */
-        .msg.other { background: white; color: #1c1e21; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
-        
-        .msg b { display: block; font-size: 10px; margin-bottom: 3px; opacity: 0.8; }
-        .msg.other b { color: #4285F4; }
-
-        /* Кнопка удаления */
-        .del-btn { 
-            position: absolute; top: 5px; right: 8px; cursor: pointer; 
-            font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.7); transition: 0.2s;
-        }
-        .del-btn:hover { color: #ff4d4d; }
-    </style>
+    .msg { padding: 8px 12px; border-radius: 15px; max-width: 75%; word-wrap: break-word; position: relative; line-height: 1.4; min-width: 50px; }
+    .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: left; border-bottom-right-radius: 2px; padding-right: 30px; box-shadow: 0 2px 5px rgba(52,168,83,0.2); }
+    .msg.other { background: white; color: #1c1e21; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+    .msg b { display: block; font-size: 10px; margin-bottom: 3px; opacity: 0.8; }
+    .msg.other b { color: #4285F4; }
+    .del-btn { position: absolute; top: 5px; right: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.7); transition: 0.2s; }
+    .del-btn:hover { color: #ff4d4d; }
+</style>
 </head>
 <body>
 
@@ -280,7 +269,6 @@ async function loadChat() {
             const isMe = m.user_id === currentUser.id;
             const nameDisplay = isMe ? "Вы" : m.user_name;
             const delBtn = isMe ? `<span class="del-btn" onclick="deleteMsg('${m.id}')">×</span>` : "";
-            // Структура сообщения: кнопка удаления, затем заголовок, затем текст
             return `<div class="msg ${isMe ? 'me' : 'other'}">
                         ${delBtn}
                         <b>${nameDisplay}</b>
@@ -293,16 +281,13 @@ async function loadChat() {
 
 async function init() {
     const { data } = await supabase.auth.getUser();
-
     if (data?.user) {
         currentUser = data.user;
-
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('studySection').style.display = 'block';
         document.getElementById('leaderboardSection').style.display = 'block';
         document.getElementById('groupSection').style.display = 'block';
         document.getElementById('chatSection').style.display = 'block';
-
         document.getElementById('userNameDisplay').innerText = currentUser.user_metadata.full_name;
 
         const { data: prof } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
@@ -318,7 +303,7 @@ async function init() {
             });
         } else if (prof.status === '📚 Учусь' && prof.study_started_at) {
             elapsedSeconds = Math.floor((new Date() - new Date(prof.study_started_at)) / 1000);
-            startMainTimer(new Date());
+            startMainTimer(new Date(prof.study_started_at));
         }
 
         checkAwards('login');
